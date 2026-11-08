@@ -114,10 +114,10 @@ const $ = s => document.querySelector(s);
 const NOTES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 const SCALES = { major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10] };
 const SOUNDS = {
-  pop:   { e:'🌟', name:'Pop Star',  d:'Smooth & shiny',   retune:30, amount:100, reverb:35, double:35, echo:15, harmony:'off' },
-  robot: { e:'🤖', name:'Robot',     d:'Beep-boop voice',  retune:0,  amount:100, reverb:20, double:15, echo:25, harmony:'off' },
-  stage: { e:'🏟️', name:'Big Stage', d:'Huge echoey room', retune:45, amount:95,  reverb:70, double:25, echo:35, harmony:'off' },
-  choir: { e:'👯', name:'Choir',     d:'Lots of me singing',retune:25, amount:100, reverb:50, double:40, echo:10, harmony:'triad' },
+  pop:   { e:'🌟', name:'Pop Star',  d:'Shiny autotune',    retune:6,  amount:100, reverb:18, double:15, echo:0,  harmony:'off', hyst:0.15 },
+  robot: { e:'🤖', name:'Robot',     d:'Beep-boop voice',   retune:0,  amount:100, reverb:10, double:0,  echo:0,  harmony:'off', hyst:0.05 },
+  stage: { e:'🏟️', name:'Big Stage', d:'Concert sound',     retune:10, amount:100, reverb:40, double:20, echo:18, harmony:'off', hyst:0.15 },
+  choir: { e:'👯', name:'Choir',     d:'Lots of me singing',retune:6,  amount:100, reverb:28, double:20, echo:0,  harmony:'triad', hyst:0.15 },
 };
 const MAX_SECONDS = 180;
 
@@ -288,7 +288,7 @@ function computeTuning(an, snd){
     if (!an.voiced[i]){ cur=null; continue; }
     const m=an.midi[i], near=nearest(m);
     if (cur===null){ cur=near; cs=cur-m; }
-    else if (Math.abs(m-near)+0.2 < Math.abs(m-cur)) cur=near;
+    else if (Math.abs(m-near)+(snd.hyst??0.15) < Math.abs(m-cur)) cur=near;
     cs+=alpha*((cur-m)-cs);
     lead[i]=cs*amt; outM[i]=m+lead[i];
     const idx=allowed.indexOf(cur);
