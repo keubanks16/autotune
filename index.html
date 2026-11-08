@@ -66,6 +66,11 @@
   .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--yellow),var(--pink))}
   .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);background:#fff;color:#2a0f4a;
     padding:12px 18px;border-radius:16px;font-weight:800;font-size:15px;z-index:20;max-width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  .lvlLabel{font-weight:800;font-size:15px;color:var(--dim);margin:16px 0 8px;text-align:center}
+  .levels{display:flex;gap:8px;background:rgba(255,255,255,.08);padding:5px;border-radius:18px}
+  .lvl{flex:1;border:0;border-radius:14px;padding:12px 4px;font-family:inherit;font-size:16px;font-weight:900;color:#fff;background:none;cursor:pointer}
+  .lvl.sel{background:linear-gradient(135deg,var(--purple),var(--pink))}
+  .levels.off{opacity:.4}
   .musicBtn{width:100%;margin-top:12px;border:3px solid transparent;border-radius:22px;padding:14px;font-family:inherit;font-size:18px;font-weight:900;color:#fff;cursor:pointer;background:rgba(255,255,255,.08)}
   .musicBtn.on{border-color:var(--mint);background:rgba(62,230,181,.16)}
   .updating{text-align:center;color:var(--yellow);font-weight:800;font-size:14px;min-height:18px;margin-top:10px}
@@ -92,6 +97,8 @@
   <div class="card hidden" id="soundCard">
     <div class="step"><span class="num">2</span> Pick a sound</div>
     <div class="sounds" id="sounds"></div>
+    <div class="lvlLabel">How much autotune?</div>
+    <div class="levels" id="levels"></div>
     <button class="musicBtn" id="musicBtn"></button>
     <div class="updating" id="updating"></div>
   </div>
@@ -122,10 +129,11 @@ const SOUNDS = {
   stage: { e:'🏟️', name:'Big Stage', d:'Concert sound',     retune:25, amount:85,  reverb:22, room:1.4, double:20, echo:0, harmony:'off', hyst:0.15 },
   choir: { e:'👯', name:'Choir',     d:'Lots of me singing',retune:20, amount:90,  reverb:14, room:1.0, double:25, echo:0, harmony:'triad', hyst:0.15 },
 };
+const LEVELS = { light:{ name:'Light', retune:55, amount:65 }, medium:{ name:'Medium', retune:30, amount:85 }, strong:{ name:'Strong', retune:10, amount:100 } };
 const MAX_SECONDS = 180;
 
-const S = { music: true, sound: 'pop', x:null, sr:0, an:null, marks:null, mix:null, orig:null, playing:null, renderId:0, tuning:null };
-try { const s = localStorage.getItem('kat-sound'); if (SOUNDS[s]) S.sound = s; if (localStorage.getItem('kat-music')==='off') S.music=false; } catch(e){}
+const S = { level: 'light', music: true, sound: 'pop', x:null, sr:0, an:null, marks:null, mix:null, orig:null, playing:null, renderId:0, tuning:null };
+try { const s = localStorage.getItem('kat-sound'); if (SOUNDS[s]) S.sound = s; if (localStorage.getItem('kat-music')==='off') S.music=false; const lv=localStorage.getItem('kat-level'); if (LEVELS[lv]) S.level=lv; } catch(e){}
 
 let ac = null;
 function getCtx(){
@@ -145,11 +153,18 @@ function buildSounds(){
     const b=document.createElement('button'); b.className='snd'+(k===S.sound?' sel':'');
     b.innerHTML=`<span class="e">${v.e}</span>${v.name}<small>${v.d}</small>`;
     b.onclick=()=>{ if (S.sound===k) return; S.sound=k; try{localStorage.setItem('kat-sound',k);}catch(e){}
-      buildSounds(); if (S.an) rerender(true); };
+      buildSounds(); showLevels(); if (S.an) rerender(true); };
     box.appendChild(b);
   }
 }
 buildSounds();
+function showLevels(){
+  const box=$('#levels'); box.innerHTML=''; box.classList.toggle('off', S.sound==='robot');
+  for (const [k,v] of Object.entries(LEVELS)){ const b=document.createElement('button'); b.className='lvl'+(k===S.level?' sel':''); b.textContent=v.name;
+    b.onclick=()=>{ if (S.sound==='robot'){ toast('Robot is always full autotune 🤖'); return; } if (S.level===k) return; S.level=k; try{localStorage.setItem('kat-level',k);}catch(e){} showLevels(); if (S.an) rerender(true); };
+    box.appendChild(b); }
+}
+showLevels();
 function showMusic(){ const b=$('#musicBtn'); b.classList.toggle('on',S.music); b.textContent= S.music ? '🎹 Music: ON' : '🎹 Music: OFF'; }
 showMusic();
 $('#musicBtn').onclick=()=>{ S.music=!S.music; try{localStorage.setItem('kat-music',S.music?'on':'off');}catch(e){} showMusic(); if (S.an) rerender(true); };
@@ -517,7 +532,7 @@ async function rerender(showUpdating){
   const id=++S.renderId; stopPlayback();
   if (showUpdating) $('#updating').textContent='✨ Changing your sound…';
   await tick();
-  const snd=SOUNDS[S.sound], an=S.an, sr=S.sr;
+  const base=SOUNDS[S.sound], snd= S.sound==='robot' ? base : { ...base, ...LEVELS[S.level], name:base.name }, an=S.an, sr=S.sr;
   const tu=computeTuning(an,snd);
   const lead=psola(S.x,sr,S.marks,s=>frameVal(an,tu.lead,s,sr));
   const harms=tu.harm.map(h=>psola(S.x,sr,S.marks,s=>frameVal(an,h,s,sr)));
