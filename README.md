@@ -1,4 +1,4 @@
-# 🎤 Karsyn's Autotune ✨
+# 🎤 Karsyn & Karter's AutoTune ✨
 
 Tap record, sing, and hear yourself come back sounding like a pop star.
 

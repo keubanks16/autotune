@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Karsyn's Autotune</title>
+<title>Karsyn &amp; Karter's AutoTune</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Karsyn's Autotune">
+<meta name="apple-mobile-web-app-title" content="Karsyn &amp; Karter's AutoTune">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#2a0f4a">
 <link rel="apple-touch-icon" href="icon.png">
@@ -78,7 +78,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🎤 Karsyn's Autotune ✨</h1>
+  <h1>🎤 Karsyn &amp; Karter's AutoTune ✨</h1>
   <p class="sub">Sing anything, and it comes back sounding like a pop star!</p>
 
   <div class="card">
@@ -596,10 +596,10 @@ function wavBlob(buf){
 $('#saveBtn').onclick=async()=>{
   if (!S.mix) return;
   const d=new Date(), pad=n=>String(n).padStart(2,'0');
-  const name=`Karsyn-${SOUNDS[S.sound].name.replace(/\s/g,'')}-${d.getMonth()+1}-${d.getDate()}-${pad(d.getHours())}${pad(d.getMinutes())}.wav`;
+  const name=`KarsynKarter-${SOUNDS[S.sound].name.replace(/\s/g,'')}-${d.getMonth()+1}-${d.getDate()}-${pad(d.getHours())}${pad(d.getMinutes())}.wav`;
   const blob=wavBlob(S.mix), file=new File([blob],name,{type:'audio/wav'});
   try {
-    if (navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:"Karsyn's song"}); return; }
+    if (navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:"Karsyn & Karter's AutoTune"}); return; }
   } catch(e){ if (e && e.name==='AbortError') return; }
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),10000); toast('Saved! 🎉');
