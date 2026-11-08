@@ -73,13 +73,26 @@
   .levels.off{opacity:.4}
   .musicBtn{width:100%;margin-top:12px;border:3px solid transparent;border-radius:22px;padding:14px;font-family:inherit;font-size:18px;font-weight:900;color:#fff;cursor:pointer;background:rgba(255,255,255,.08)}
   .musicBtn.on{border-color:var(--mint);background:rgba(62,230,181,.16)}
+  .profiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:0 0 16px}
+  .prof{border:3px solid transparent;border-radius:22px;padding:12px 4px;background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:16px;font-weight:900;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .prof .e{font-size:34px;line-height:1}
+  .prof.sel{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 22%,transparent)}
+  .song{display:flex;align-items:center;gap:10px;padding:10px;border-radius:18px;background:rgba(255,255,255,.06);margin-bottom:10px}
+  .song.cur{background:rgba(255,210,63,.14);outline:2px solid rgba(255,210,63,.5)}
+  .song .pl{width:48px;height:48px;border-radius:50%;border:0;flex:none;font-size:20px;cursor:pointer;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink))}
+  .song .info{flex:1;min-width:0}
+  .song .nm{font-weight:900;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .song .meta{font-size:13px;color:var(--dim)}
+  .song .ib{border:0;background:rgba(255,255,255,.1);width:40px;height:40px;border-radius:12px;font-size:18px;cursor:pointer;flex:none}
+  .empty{text-align:center;color:var(--dim);font-size:15px;padding:6px 0}
   .updating{text-align:center;color:var(--yellow);font-weight:800;font-size:14px;min-height:18px;margin-top:10px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🎤 Karsyn &amp; Karter's AutoTune ✨</h1>
-  <p class="sub">Sing anything, and it comes back sounding like a pop star!</p>
+  <p class="sub">Who's singing?</p>
+  <div class="profiles" id="profiles"></div>
 
   <div class="card">
     <div class="step"><span class="num">1</span> Tap and sing!</div>
@@ -110,9 +123,14 @@
       <button class="big play" id="playTuned">▶️ Play my song</button>
       <div class="row">
         <button class="big plain" id="playOrig">🙂 My real voice</button>
-        <button class="big save" id="saveBtn">💾 Save</button>
+        <button class="big save" id="saveBtn">📤 Share</button>
       </div>
     </div>
+  </div>
+
+  <div class="card" id="songsCard">
+    <div class="step"><span class="num">🎵</span> <span id="songsTitle">My Songs</span></div>
+    <div id="songList"></div>
   </div>
 </div>
 
@@ -132,8 +150,20 @@ const SOUNDS = {
 const LEVELS = { light:{ name:'Light', retune:55, amount:65 }, medium:{ name:'Medium', retune:30, amount:85 }, strong:{ name:'Strong', retune:10, amount:100 } };
 const MAX_SECONDS = 180;
 
-const S = { level: 'light', music: true, sound: 'pop', x:null, sr:0, an:null, marks:null, mix:null, orig:null, playing:null, renderId:0, tuning:null };
-try { const s = localStorage.getItem('kat-sound'); if (SOUNDS[s]) S.sound = s; if (localStorage.getItem('kat-music')==='off') S.music=false; const lv=localStorage.getItem('kat-level'); if (LEVELS[lv]) S.level=lv; } catch(e){}
+const S = { profile: 'karsyn', songId: null, level: 'light', music: true, sound: 'pop', x:null, sr:0, an:null, marks:null, mix:null, orig:null, playing:null, renderId:0, tuning:null };
+const PROFILES = {
+  karsyn:   { name:'Karsyn',   e:'🦄', color:'#ff4fa3' },
+  karter:   { name:'Karter',   e:'🌈', color:'#8b5cff' },
+  together: { name:'Together', e:'👯', color:'#3ee6b5' },
+};
+const store={ get:k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set:(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} } };
+function loadProfileSettings(){
+  const p=S.profile, s=store.get(`kat-${p}-sound`), lv=store.get(`kat-${p}-level`);
+  S.sound = SOUNDS[s] ? s : 'pop'; S.level = LEVELS[lv] ? lv : 'light'; S.music = store.get(`kat-${p}-music`)!=='off';
+}
+function saveSetting(k,v){ store.set(`kat-${S.profile}-${k}`,v); if (S.songId) updateSongMeta(S.songId,{ sound:S.sound, level:S.level, music:S.music }); }
+{ const p=store.get('kat-profile'); if (PROFILES[p]) S.profile=p; }
+loadProfileSettings();
 
 let ac = null;
 function getCtx(){
@@ -152,7 +182,7 @@ function buildSounds(){
   for (const [k,v] of Object.entries(SOUNDS)){
     const b=document.createElement('button'); b.className='snd'+(k===S.sound?' sel':'');
     b.innerHTML=`<span class="e">${v.e}</span>${v.name}<small>${v.d}</small>`;
-    b.onclick=()=>{ if (S.sound===k) return; S.sound=k; try{localStorage.setItem('kat-sound',k);}catch(e){}
+    b.onclick=()=>{ if (S.sound===k) return; S.sound=k; saveSetting('sound',k);
       buildSounds(); showLevels(); if (S.an) rerender(true); };
     box.appendChild(b);
   }
@@ -161,13 +191,98 @@ buildSounds();
 function showLevels(){
   const box=$('#levels'); box.innerHTML=''; box.classList.toggle('off', S.sound==='robot');
   for (const [k,v] of Object.entries(LEVELS)){ const b=document.createElement('button'); b.className='lvl'+(k===S.level?' sel':''); b.textContent=v.name;
-    b.onclick=()=>{ if (S.sound==='robot'){ toast('Robot is always full autotune 🤖'); return; } if (S.level===k) return; S.level=k; try{localStorage.setItem('kat-level',k);}catch(e){} showLevels(); if (S.an) rerender(true); };
+    b.onclick=()=>{ if (S.sound==='robot'){ toast('Robot is always full autotune 🤖'); return; } if (S.level===k) return; S.level=k; saveSetting('level',k); showLevels(); if (S.an) rerender(true); };
     box.appendChild(b); }
 }
 showLevels();
 function showMusic(){ const b=$('#musicBtn'); b.classList.toggle('on',S.music); b.textContent= S.music ? '🎹 Music: ON' : '🎹 Music: OFF'; }
 showMusic();
-$('#musicBtn').onclick=()=>{ S.music=!S.music; try{localStorage.setItem('kat-music',S.music?'on':'off');}catch(e){} showMusic(); if (S.an) rerender(true); };
+$('#musicBtn').onclick=()=>{ S.music=!S.music; saveSetting('music',S.music?'on':'off'); showMusic(); if (S.an) rerender(true); };
+
+/* ---------- profiles ---------- */
+function showProfiles(){
+  const box=$('#profiles'); box.innerHTML='';
+  for (const [k,v] of Object.entries(PROFILES)){
+    const b=document.createElement('button'); b.className='prof'+(k===S.profile?' sel':''); b.style.setProperty('--pc',v.color);
+    b.innerHTML=`<span class="e">${v.e}</span>${v.name}`;
+    b.onclick=()=>switchProfile(k);
+    box.appendChild(b);
+  }
+  const P=PROFILES[S.profile];
+  $('#songsTitle').textContent = S.profile==='together' ? 'Our Songs' : `${P.name}'s Songs`;
+}
+function switchProfile(k){
+  if (R.on){ toast('Finish recording first! 🎤'); return; }
+  if (k===S.profile) return;
+  stopPlayback();
+  S.profile=k; store.set('kat-profile',k); loadProfileSettings();
+  S.an=null; S.mix=null; S.songId=null; S.tuning=null;
+  $('#soundCard').classList.add('hidden'); $('#playCard').classList.add('hidden');
+  buildSounds(); showLevels(); showMusic(); showProfiles(); renderSongs();
+}
+
+/* ---------- saved songs (kept on this device) ---------- */
+let dbP=null;
+function openDB(){
+  if (!dbP) dbP=new Promise((res,rej)=>{
+    const r=indexedDB.open('kk-autotune',1);
+    r.onupgradeneeded=()=>{ const db=r.result; const m=db.createObjectStore('meta',{keyPath:'id'}); m.createIndex('profile','profile'); db.createObjectStore('audio',{keyPath:'id'}); };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+  return dbP;
+}
+async function dbRun(stores, mode, fn){
+  const db=await openDB();
+  return new Promise((res,rej)=>{ const t=db.transaction(stores,mode); let out; const r=fn(t); t.oncomplete=()=>res(r && 'result' in r ? r.result : undefined); t.onerror=t.onabort=()=>rej(t.error); });
+}
+const listSongs=p=>dbRun(['meta'],'readonly',t=>t.objectStore('meta').index('profile').getAll(p));
+async function saveSong(x, sr){
+  const songs=await listSongs(S.profile);
+  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  let maxN=0; for (const s of songs){ const m=/^Song (\d+)$/.exec(s.name); if (m) maxN=Math.max(maxN,+m[1]); }
+  const pcm=new Int16Array(x.length); for (let i=0;i<x.length;i++){ const v=Math.max(-1,Math.min(1,x[i])); pcm[i]=v<0?v*0x8000:v*0x7fff; }
+  const meta={ id, profile:S.profile, name:`Song ${Math.max(maxN,songs.length)+1}`, created:Date.now(), duration:x.length/sr, sound:S.sound, level:S.level, music:S.music };
+  await dbRun(['meta','audio'],'readwrite',t=>{ t.objectStore('meta').put(meta); t.objectStore('audio').put({ id, sr, pcm:pcm.buffer }); });
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+  return meta;
+}
+async function updateSongMeta(id, patch){
+  try { await dbRun(['meta'],'readwrite',t=>{ const st=t.objectStore('meta'); const g=st.get(id); g.onsuccess=()=>{ if (g.result) st.put({ ...g.result, ...patch }); }; }); } catch(e){}
+}
+async function renderSongs(){
+  const box=$('#songList');
+  let songs=[]; try { songs=await listSongs(S.profile); } catch(e){ box.innerHTML='<div class="empty">Saving songs isn’t available in this browser.</div>'; return; }
+  songs.sort((a,b)=>b.created-a.created);
+  if (!songs.length){ box.innerHTML='<div class="empty">No songs yet. Tap Record and sing one! 🎤</div>'; return; }
+  box.innerHTML='';
+  for (const s of songs){
+    const d=new Date(s.created), dur=Math.round(s.duration);
+    const row=document.createElement('div'); row.className='song'+(s.id===S.songId?' cur':'');
+    row.innerHTML=`<button class="pl">▶️</button><div class="info"><div class="nm"></div><div class="meta">${d.toLocaleDateString(undefined,{month:'short',day:'numeric'})} · ${Math.floor(dur/60)}:${String(dur%60).padStart(2,'0')} · ${(SOUNDS[s.sound]||SOUNDS.pop).e}</div></div><button class="ib" title="Rename">✏️</button><button class="ib" title="Delete">🗑️</button>`;
+    row.querySelector('.nm').textContent=s.name;
+    const [pl,ren,del]=row.querySelectorAll('button');
+    pl.onclick=()=>openSong(s);
+    ren.onclick=async()=>{ const n=prompt('Name this song:', s.name); if (n && n.trim()){ await updateSongMeta(s.id,{ name:n.trim().slice(0,40) }); if (S.songId===s.id) S.songName=n.trim().slice(0,40); renderSongs(); } };
+    del.onclick=async()=>{ if (!confirm(`Delete "${s.name}"? This can’t be undone.`)) return;
+      await dbRun(['meta','audio'],'readwrite',t=>{ t.objectStore('meta').delete(s.id); t.objectStore('audio').delete(s.id); });
+      if (S.songId===s.id){ stopPlayback(); S.songId=null; S.an=null; S.mix=null; $('#soundCard').classList.add('hidden'); $('#playCard').classList.add('hidden'); }
+      renderSongs(); };
+    box.appendChild(row);
+  }
+}
+async function openSong(s){
+  if (R.on) return;
+  if (S.songId===s.id && S.mix){ play('tuned'); return; }
+  busy(true,'Opening your song…');
+  try {
+    const a=await dbRun(['audio'],'readonly',t=>t.objectStore('audio').get(s.id));
+    const pcm=new Int16Array(a.pcm), x=new Float32Array(pcm.length); for (let i=0;i<pcm.length;i++) x[i]=pcm[i]/0x8000;
+    if (SOUNDS[s.sound]) S.sound=s.sound; if (LEVELS[s.level]) S.level=s.level; S.music=s.music!==false;
+    buildSounds(); showLevels(); showMusic();
+    const ok=await loadAudio(x, a.sr, { prepped:true });
+    if (ok){ S.songId=s.id; S.songName=s.name; renderSongs(); play('tuned'); }
+  } catch(e){ console.error(e); busy(false); toast('Couldn’t open that song 😕'); }
+}
 
 /* ---------- pitch detection (YIN) ---------- */
 function yin(x,o,W,sr,tauMin,tauMax,thr,df,cm){
@@ -505,15 +620,15 @@ function prepInput(x, sr){
   return x;
 }
 
-async function loadAudio(x, sr){
+async function loadAudio(x, sr, opts={}){
   stopPlayback();
-  if (x.length < sr*0.7){ toast('That was super short! Try singing a little longer 🎤'); return; }
+  if (x.length < sr*0.7){ toast('That was super short! Try singing a little longer 🎤'); return false; }
   busy(true,'Listening to your voice…'); await tick();
   try {
-    x=prepInput(x,sr);
+    if (!opts.prepped) x=prepInput(x,sr);
     S.x=x; S.sr=sr;
     S.an=await analyzePitch(x,sr);
-    if (!S.an.voiced.some(v=>v)){ busy(false); toast("Hmm, I couldn't hear singing. Try again a little louder!"); return; }
+    if (!S.an.voiced.some(v=>v)){ busy(false); S.an=null; toast("Hmm, I couldn't hear singing. Try again a little louder!"); return false; }
     S.an.key=detectKey(S.an);
     $('#busyText').textContent='Making you sound amazing…'; prog(0.75); await tick();
     S.marks=makeMarks(x,sr,S.an);
@@ -524,7 +639,12 @@ async function loadAudio(x, sr){
     $('#soundCard').classList.remove('hidden'); $('#playCard').classList.remove('hidden');
     busy(false);
     $('#playCard').scrollIntoView({behavior:'smooth',block:'center'});
-  } catch(e){ console.error(e); busy(false); toast('Oops, something went wrong. Try again!'); }
+    if (opts.save){
+      try { const m=await saveSong(S.x,sr); S.songId=m.id; S.songName=m.name; renderSongs(); toast(`Saved as “${m.name}” 🎉`); }
+      catch(e){ console.error(e); toast('Couldn’t save this song on the phone 😕'); }
+    }
+    return true;
+  } catch(e){ console.error(e); busy(false); toast('Oops, something went wrong. Try again!'); return false; }
 }
 
 async function rerender(showUpdating){
@@ -596,7 +716,8 @@ function wavBlob(buf){
 $('#saveBtn').onclick=async()=>{
   if (!S.mix) return;
   const d=new Date(), pad=n=>String(n).padStart(2,'0');
-  const name=`KarsynKarter-${SOUNDS[S.sound].name.replace(/\s/g,'')}-${d.getMonth()+1}-${d.getDate()}-${pad(d.getHours())}${pad(d.getMinutes())}.wav`;
+  const songName=S.songName||'Song';
+  const name=`${PROFILES[S.profile].name}-${songName}-${SOUNDS[S.sound].name}`.replace(/[^\w\- ]+/g,'').replace(/\s+/g,'-')+'.wav';
   const blob=wavBlob(S.mix), file=new File([blob],name,{type:'audio/wav'});
   try {
     if (navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:"Karsyn & Karter's AutoTune"}); return; }
@@ -635,7 +756,7 @@ function stopRec(){
   let len=0; for (const c of R.chunks) len+=c.length;
   const x=new Float32Array(len); let o=0; for (const c of R.chunks){ x.set(c,o); o+=c.length; }
   R.chunks=[];
-  loadAudio(x, getCtx().sampleRate);
+  S.songId=null; loadAudio(x, getCtx().sampleRate, { save:true });
 }
 function meterLoop(){
   if (!R.on) return;
@@ -666,9 +787,10 @@ $('#file').onchange=async e=>{
     const buf=await new Promise((res,rej)=>{ const p=ctx.decodeAudioData(ab,res,rej); if (p && p.then) p.then(res,rej); });
     const n=Math.min(buf.length, buf.sampleRate*MAX_SECONDS), x=new Float32Array(n);
     for (let c=0;c<buf.numberOfChannels;c++){ const d=buf.getChannelData(c); for (let i=0;i<n;i++) x[i]+=d[i]/buf.numberOfChannels; }
-    busy(false); loadAudio(x, buf.sampleRate);
+    busy(false); S.songId=null; loadAudio(x, buf.sampleRate, { save:true });
   } catch(err){ busy(false); toast('I couldn’t open that file. Try a different one!'); }
 };
+showProfiles(); renderSongs();
 window.addEventListener('resize',()=>{ if (S.tuning && !S.playing) drawViz(0); });
 </script>
 </body>
