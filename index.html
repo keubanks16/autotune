@@ -117,10 +117,10 @@ const $ = s => document.querySelector(s);
 const NOTES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 const SCALES = { major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10] };
 const SOUNDS = {
-  pop:   { e:'🌟', name:'Pop Star',  d:'In tune & natural', retune:22, amount:85, reverb:18, double:15, echo:0,  harmony:'off', hyst:0.15 },
-  robot: { e:'🤖', name:'Robot',     d:'Beep-boop voice',   retune:0,  amount:100, reverb:10, double:0,  echo:0,  harmony:'off', hyst:0.05 },
-  stage: { e:'🏟️', name:'Big Stage', d:'Concert sound',     retune:25, amount:85, reverb:40, double:20, echo:18, harmony:'off', hyst:0.15 },
-  choir: { e:'👯', name:'Choir',     d:'Lots of me singing',retune:20, amount:90, reverb:28, double:20, echo:0,  harmony:'triad', hyst:0.15 },
+  pop:   { e:'🌟', name:'Pop Star',  d:'In tune & natural', retune:22, amount:85,  reverb:10, room:0.8, double:0,  echo:0, harmony:'off', hyst:0.15 },
+  robot: { e:'🤖', name:'Robot',     d:'Beep-boop voice',   retune:0,  amount:100, reverb:6,  room:0.8, double:0,  echo:0, harmony:'off', hyst:0.05 },
+  stage: { e:'🏟️', name:'Big Stage', d:'Concert sound',     retune:25, amount:85,  reverb:22, room:1.4, double:20, echo:0, harmony:'off', hyst:0.15 },
+  choir: { e:'👯', name:'Choir',     d:'Lots of me singing',retune:20, amount:90,  reverb:14, room:1.0, double:25, echo:0, harmony:'triad', hyst:0.15 },
 };
 const MAX_SECONDS = 180;
 
@@ -370,7 +370,7 @@ function addMusic(oc, out, fxIn, chords){
   const padLP=oc.createBiquadFilter(); padLP.type='lowpass'; padLP.frequency.value=1100; padLP.Q.value=0.4;
   const padG=oc.createGain(); padG.gain.value=0.045; padLP.connect(padG); padG.connect(bus);
   const pianoG=oc.createGain(); pianoG.gain.value=0.11; pianoG.connect(bus);
-  const pianoSend=oc.createGain(); pianoSend.gain.value=0.25; pianoG.connect(pianoSend); pianoSend.connect(fxIn);
+  const pianoSend=oc.createGain(); pianoSend.gain.value=0.1; pianoG.connect(pianoSend); pianoSend.connect(fxIn);
   const bassG=oc.createGain(); bassG.gain.value=0.2; const bassLP=oc.createBiquadFilter(); bassLP.type='lowpass'; bassLP.frequency.value=400; bassG.connect(bassLP); bassLP.connect(bus);
   const pianoWave=oc.createPeriodicWave(new Float32Array([0,1,0.35,0.12,0.06,0.03]), new Float32Array(6));
   const step=60/92/2; // gentle 92 bpm eighth notes
@@ -408,7 +408,7 @@ function makeIR(oc, sr, dur){
   for (let c=0;c<2;c++){
     const d=b.getChannelData(c); let y=0;
     // early reflections
-    for (let r=0;r<14;r++){ const at=pre+Math.floor(sr*(0.004+Math.random()*0.07)); if (at<len) d[at]+=(Math.random()<0.5?-1:1)*0.5*Math.pow(0.85,r); }
+    for (let r=0;r<10;r++){ const at=pre+Math.floor(sr*(0.003+Math.random()*0.022)); if (at<len) d[at]+=(Math.random()<0.5?-1:1)*0.2*Math.pow(0.8,r); }
     // smooth, darkening tail
     for (let i=pre;i<len;i++){ const t=(i-pre)/sr, k=0.7-0.55*(i/len); y+=k*((Math.random()*2-1)-y); d[i]+=y*0.6*Math.exp(-6.9*t/dur)*Math.min(1,t/0.03); }
   }
@@ -443,8 +443,8 @@ async function renderMix(lead, harms, doubles, sr, snd, chords){
   // real double-tracks (slightly different pitch + timing), panned wide
   doubles.forEach((d,j)=>{
     const s=oc.createBufferSource(); s.buffer=mkBuf(d); sources.push(s);
-    const dl=oc.createDelay(0.1); dl.delayTime.value= j ? 0.031 : 0.022;
-    const lp=filt('lowpass',7000); const g=oc.createGain(); g.gain.value=snd.double/100*0.7; const pn=oc.createStereoPanner(); pn.pan.value= j ? 0.85 : -0.85;
+    const dl=oc.createDelay(0.1); dl.delayTime.value= j ? 0.014 : 0.009;
+    const lp=filt('lowpass',7000); const g=oc.createGain(); g.gain.value=snd.double/100*0.5; const pn=oc.createStereoPanner(); pn.pan.value= j ? 0.85 : -0.85;
     chain(s).connect(dl); dl.connect(lp); lp.connect(g); g.connect(pn); pn.connect(vocalBus); g.connect(fxIn);
   });
   harms.forEach((h,j)=>{
@@ -453,7 +453,7 @@ async function renderMix(lead, harms, doubles, sr, snd, chords){
     chain(s).connect(g); g.connect(pn); pn.connect(vocalBus); g.connect(fxIn);
   });
   if (snd.reverb>0){
-    const conv=oc.createConvolver(); conv.buffer=makeIR(oc,sr,2.2);
+    const conv=oc.createConvolver(); conv.buffer=makeIR(oc,sr,snd.room||1);
     const hp=filt('highpass',300), lp=filt('lowpass',8000); const g=oc.createGain(); g.gain.value=snd.reverb/100*0.9;
     fxIn.connect(hp); hp.connect(conv); conv.connect(lp); lp.connect(g); g.connect(master);
   }
