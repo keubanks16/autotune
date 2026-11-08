@@ -1,0 +1,9 @@
+{
+  "name": "Karsyn's Autotune",
+  "short_name": "Autotune",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#2a0f4a",
+  "theme_color": "#2a0f4a",
+  "icons": [{ "src": "icon.png", "sizes": "512x512", "type": "image/png" }]
+}
